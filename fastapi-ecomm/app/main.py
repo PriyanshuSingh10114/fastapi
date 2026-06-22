@@ -1,10 +1,14 @@
-from fastapi import FastAPI, HTTPException, Query, Path, Depends, Request
+from fastapi import FastAPI, HTTPException, Query, Path, Depends, Request, Body
 from services.products import get_all_products, add_product, remove_product,change_product, load_products 
 from schema.product import Product, ProductUpdate
 from uuid import uuid4, UUID
 from datetime import datetime
 from typing import List, Dict
+from dotenv import load_dotenv
+from fastapi.responses import JSONResponse
+import os
 
+load_dotenv()
 app=FastAPI()
 
 @app.middleware("http")
@@ -20,7 +24,13 @@ def common_logic():
 
 @app.get("/", response_model=Dict)
 def root(dep=Depends(common_logic)):
-    return {"message":"Welcome to FastAPI E-commerce Application!", "dependency_result": dep}
+    DB_PATH=os.getenv("BASE_URL")
+    # return {"message":"Welcome to FastAPI E-commerce Application!", "dependency_result": dep, "data_path":DB_PATH}
+
+    return JSONResponse(
+        status_code=200,
+        content={"message":"Welcome to FastAPI E-commerce Application!", "dependency_result": dep, "data_path":DB_PATH}
+    )
 
 # @app.get('/products/{id}')
 # def get_products(id:int):
@@ -148,11 +158,11 @@ def delete_product(
     
 @app.put("/products/{product_id}")
 def update_product(
-    product_id: UUID = Path(...,description="Product UUID"),
-    payload: ProductUpdate=...,
+    product_id: UUID = Path(..., description="Product UUID"),
+    payload: ProductUpdate = Body(...),
 ):
     try:
-        update_product=change_product(str(product_id),payload.model_dump(mode="json", exclude_unset=True))
-        return update_product
+        result = change_product(str(product_id), payload.model_dump(mode="json", exclude_unset=True))
+        return result
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
