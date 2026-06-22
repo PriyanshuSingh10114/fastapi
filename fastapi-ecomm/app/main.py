@@ -1,14 +1,26 @@
-from fastapi import FastAPI, HTTPException, Query, Path
-from services.products import get_all_products, add_product, remove_product,change_product 
+from fastapi import FastAPI, HTTPException, Query, Path, Depends, Request
+from services.products import get_all_products, add_product, remove_product,change_product, load_products 
 from schema.product import Product, ProductUpdate
 from uuid import uuid4, UUID
 from datetime import datetime
+from typing import List, Dict
 
 app=FastAPI()
 
-@app.get("/")
-def root():
-    return {"message":"Welcome to FastAPI E-commerce Application!"}
+@app.middleware("http")
+async def lifecycle(request: Request, call_next):
+    print("Before Request")
+    response = await call_next(request)
+    print("After Request")
+    return response
+
+def common_logic():
+    print("This is common logic for all endpoints")
+    return "Common Logic Executed"
+
+@app.get("/", response_model=Dict)
+def root(dep=Depends(common_logic)):
+    return {"message":"Welcome to FastAPI E-commerce Application!", "dependency_result": dep}
 
 # @app.get('/products/{id}')
 # def get_products(id:int):
@@ -23,8 +35,9 @@ def root():
 # def list_products(name:str):
 #     return name
 
-@app.get("/products")
+@app.get("/products", response_model=Dict)
 def list_products(
+    dep=Depends(load_products),
     name: str | None = Query(
         default=None,
         min_length=1,
@@ -52,7 +65,8 @@ def list_products(
         description="Pagination Offset",
     ),
 ):
-    products = get_all_products()
+    #products = get_all_products()
+    products = dep
 
     # Search by name
     if name:
@@ -88,7 +102,7 @@ def list_products(
     }
 
 
-@app.get("/products/{product_id}")
+@app.get("/products/{product_id}", response_model=Dict)
 def get_products_by_id(
     product_id: str = Path(
         ...,
